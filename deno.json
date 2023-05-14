@@ -5,7 +5,7 @@
     }
   },
   "tasks": {
-    "start": "deno run --allow-all src/index.ts"
+    "start": "deno run --allow-all src/.ts"
   },
   "lint": {
     "files": {
