@@ -1,5 +1,4 @@
-// import { generateSchema } from 'https://deno.land/x/tuner@v0.0.3/schema/generator.ts';
-
+import { generateSchema } from 'https://deno.land/x/tuner@v0.0.3/schema/generator.ts';
 import { TestnetConfig } from './localConfigSchema.ts';
 
 const testnetLocalConfig: TestnetConfig = {
@@ -9,9 +8,19 @@ const testnetLocalConfig: TestnetConfig = {
       name: 'mnemonic',
       value: '',
     },
+    {
+      name: 'dbURL',
+      value: '',
+    },
+    {
+      name: 'dbAPIKey',
+      value: '',
+    },
   ],
-  artpaniWalletAddress:
-    'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5',
+  testAddresses: [
+    ['artpani', 'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5'],
+    ['sevapp', 'EQCpK63K5IrV8e27q-W4Ktg5WnYjAXIKRSraL3XcDfz3sgX8'],
+  ],
 };
 
 export default testnetLocalConfig;
