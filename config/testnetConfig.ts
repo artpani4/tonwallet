@@ -19,6 +19,10 @@ const testnetLocalConfig: TestnetConfig = {
   ],
   testAddresses: [
     ['artpani', 'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5'],
+    [
+      'artpanitest',
+      'kQCnrUsj-l_9ajt1QRZLutpFknkKG4AULHzsUl8mzz00wueH',
+    ],
     ['sevapp', 'EQCpK63K5IrV8e27q-W4Ktg5WnYjAXIKRSraL3XcDfz3sgX8'],
   ],
 };

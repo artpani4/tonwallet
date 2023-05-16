@@ -1,14 +1,22 @@
-import { addWallet } from '../helpers/db.ts';
 import {
+  getWalletContractByPublic,
+  getWalletPublicKeyByAddress,
+} from '../helpers/walletUtils.ts';
+import {
+  Buffer,
   fromNano,
   getHttpEndpoint,
+  internal,
   mnemonicNew,
   mnemonicToWalletKey,
   supabase,
   TonClient,
   WalletContractV4,
 } from './mod.ts';
-import { Buffer } from './mod.ts';
+import { waitForTransaction } from '../helpers/walletUtils.ts';
+
+import { addWallet } from './db/setter.ts';
+import axiod from 'https://deno.land/x/axiod/mod.ts';
 
 export interface IWallet {
   privateKey: string;
@@ -39,7 +47,51 @@ export async function getBalanceByPublicKey(
   const client = new TonClient({ endpoint });
   return fromNano(await client.getBalance(wallet.address));
 }
-export async function getBalanceByAddress() {}
+export async function getWalletByAddress(address: string) {
+  const [maybeKey, error] = await getWalletPublicKeyByAddress(
+    address,
+  );
+  if (error) {
+    throw new Error(error);
+  }
+  if (!maybeKey) {
+    throw new Error('Wallet not found');
+  }
+  const publicKey = maybeKey;
+  const wallet = WalletContractV4.create({
+    publicKey: Buffer.from(publicKey, 'hex'),
+    workchain: 0,
+  });
+  return wallet;
+}
+
+// export async function getBalanceByAddress(
+//   address: string,
+//   clientTon?: TonClient,
+// ) {
+//   const client = await maybeNewClient(clientTon);
+//   const wallet = await getWalletByAddress(address);
+//   return fromNano(await client.getBalance(wallet.address));
+// }
+
+export async function getBalanceByAddressMainnet(
+  address: string,
+) {
+  try {
+    const res = await axiod.get(
+      `https://toncenter.com/api/v2/getAddressBalance?address=${address}`,
+    );
+    const balance = res.data.result as string;
+    return [balance, null];
+  } catch (e: any) {
+    if (e.response && e.response.data && e.response.data.error) {
+      const error = e.response.data.error;
+      return [null, error];
+    } else {
+      return [null, 'Unknown error'];
+    }
+  }
+}
 
 export async function createWallet(
   db: supabase.SupabaseClient<any, 'public', any>,
@@ -53,50 +105,79 @@ export async function createWallet(
   console.log(wallet);
 }
 
+export async function activateWallet(
+  publicKeyTarget: string,
+  secretKeyTarget: string,
+  publicKeyFunding: string,
+  secretKeyFunding: string,
+  clientTon?: TonClient,
+) {
+  const client = await maybeNewClient(clientTon);
+  const targetWallet = await getWalletContractByPublic(
+    publicKeyTarget,
+  );
+  // console.log(targetWallet.address.toString());
+
+  // Фактически адрес не активирован
+  if (!(await client.isContractDeployed(targetWallet.address))) {
+    const fundingWallet = await getWalletContractByPublic(
+      publicKeyFunding,
+    );
+    // console.log(fundingWallet.address.toString());
+
+    let fundingWalletContract = client.open(fundingWallet);
+    let seqno = await fundingWalletContract.getSeqno();
+    await fundingWalletContract.sendTransfer({
+      // secretKey: Buffer.from(secretKeyFunding, 'hex'),
+      secretKey: Buffer.from(secretKeyFunding, 'hex'),
+      seqno: seqno,
+      messages: [
+        internal({
+          to: targetWallet.address,
+          value: '0.09', // 0.001 TON
+          bounce: false,
+        }),
+      ],
+    });
+    console.log('EHF');
+
+    const targetWalletContract = client.open(targetWallet);
+    seqno = await targetWalletContract.getSeqno();
+    await targetWalletContract.sendTransfer({
+      secretKey: Buffer.from(secretKeyTarget, 'hex'),
+      seqno: seqno,
+      messages: [
+        internal({
+          to: fundingWallet.address,
+          value: '0.09',
+          bounce: false,
+        }),
+      ],
+    });
+    await waitForTransaction(seqno, targetWalletContract, 1500);
+  }
+}
+
+export async function maybeNewClient(client?: TonClient) {
+  if (!client) {
+    const endpoint = await getHttpEndpoint();
+    client = new TonClient({ endpoint });
+  }
+  return client;
+}
+
 export async function initializeWallet(
   mnemonic: string[],
-  network: 'testnet' | 'mainnet' = 'mainnet',
-  client?: TonClient,
+  clientTon?: TonClient,
 ): Promise<IWallet> {
   const key = await mnemonicToWalletKey(mnemonic);
   const generatedWallet = WalletContractV4.create({
     publicKey: key.publicKey,
     workchain: 0,
   });
-  if (!client) {
-    const endpoint = await getHttpEndpoint({ network });
-    const client = new TonClient({ endpoint });
-  }
-  console.log(generatedWallet.address.toString());
-  // let walletContract = client.open(generatedWallet);
-  // let seqno = await walletContract.getSeqno();
-  // await walletContract.sendTransfer({
-  //   secretKey: key.secretKey,
-  //   seqno: seqno,
-  //   messages: [
-  //     internal({
-  //       to: generatedWallet.address,
-  //       value: '0.09', // 0.001 TON
-  //       bounce: false,
-  //     }),
-  //   ],
-  // });
 
-  // walletContract = client.open(generatedWallet);
-  // seqno = await walletContract.getSeqno();
-  // await walletContract.sendTransfer({
-  //   secretKey: key.secretKey,
-  //   seqno: seqno,
-  //   messages: [
-  //     internal({
-  //       to: fundingWallet.address,
-  //       value: '0.09', // 0.001 TON
-  //       bounce: false,
-  //     }),
-  //   ],
-  // });
+  const client = await maybeNewClient(clientTon);
 
-  // await waitForTransaction(seqno, walletContract);
   return {
     privateKey: key.secretKey.toString('hex'),
     publicKey: key.publicKey.toString('hex'),
