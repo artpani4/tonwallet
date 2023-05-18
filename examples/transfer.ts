@@ -1,25 +1,8 @@
-import axiod from 'https://deno.land/x/axiod/mod.ts';
 import { TestnetConfig } from '../config/localConfigSchema.ts';
 import manager from '../config/manager.ts';
-import {
-  getKeyPairByMnemonic,
-  getWalletContractByAddress,
-  maybeNewClient,
-} from '../helpers/walletUtils.ts';
+import { getKeyPairByMnemonic } from '../helpers/walletUtils.ts';
 import { makePayment } from '../src/transfer.ts';
-
-import * as base64 from 'https://deno.land/std@0.184.0/encoding/base64.ts';
-
-// import { Buffer } from 'https://deno.land/std@0.139.0/node/buffer.ts';
-import {
-  getHttpEndpoint,
-  internal,
-  mnemonicToWalletKey,
-  TonClient,
-} from '../src/mod.ts';
-
-import { Buffer } from 'https://deno.land/std@0.177.0/node/buffer.ts';
-import { bufToStr, strToBuf } from '../helpers/buffer.ts';
+import { getWalletContractByAddress } from '../src/wallet.ts';
 
 const config = await manager.localLoadConfig(
   (config: TestnetConfig) => config.name === Deno.env.get('name'),
@@ -42,10 +25,10 @@ const sevAddress =
 
 const myWallet = await getWalletContractByAddress(myAddress);
 
-await makePayment(
-  myAddress,
-  sevAddress,
-  myKeys.secretKey,
-  '0.05',
-  'УРА!!!!',
-);
+// await makePayment(
+//   myAddress,
+//   sevAddress,
+//   myKeys.secretKey,
+//   '0.05',
+//   'УРА!!!!',
+// );

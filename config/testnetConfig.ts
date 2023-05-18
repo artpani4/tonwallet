@@ -2,7 +2,7 @@ import { generateSchema } from 'https://deno.land/x/tuner@v0.0.3/schema/generato
 import { TestnetConfig } from './localConfigSchema.ts';
 
 const testnetLocalConfig: TestnetConfig = {
-  name: 'local',
+  name: 'test',
   secrets: [
     {
       name: 'mnemonic',

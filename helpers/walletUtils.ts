@@ -8,31 +8,49 @@ import {
   WalletContractV3R1,
   WalletContractV3R2,
 } from '../src/mod.ts';
-import {
-  getHttpEndpoint,
-  OpenedContract,
-  TonClient,
-  WalletContractV4,
-} from './mod.ts';
+import { OpenedContract, WalletContractV4 } from './mod.ts';
 import { sleep } from './timer.ts';
 import { Buffer } from 'https://deno.land/std@0.139.0/node/buffer.ts';
 import axiod from 'https://deno.land/x/axiod/mod.ts';
 import { PublicByAddress } from '../schema/public.ts';
-import { getWalletLowInfoByAddress } from '../src/wallet.ts';
 import { bufToStr } from './buffer.ts';
 
-export async function getWalletContractByAddress(
+export async function getKeyPairByMnemonic(
+  mnemonic: string,
+  divider = ' ',
+) {
+  const key = await mnemonicToWalletKey(mnemonic.split(divider));
+  console.log(key.secretKey);
+  const [secretKey, publicKey] = [
+    bufToStr(key.secretKey),
+    bufToStr(key.publicKey),
+  ];
+  return { secretKey, publicKey };
+}
+
+export async function getSecretBufferByMnemonic(
+  mnemonic: string,
+  divider = ' ',
+) {
+  const key = await getKeyPairByMnemonic(mnemonic, divider);
+  return key.secretKey;
+}
+
+export async function getWalletPublicKeyByAddress(
   address: string,
 ) {
-  const walletInterfaces = (await getWalletLowInfoByAddress(address))
-    ?.interfaces;
-  if (walletInterfaces === undefined) {
-    throw new Error('No interfaces found');
+  try {
+    const response = await axiod.get(
+      `https://tonapi.io/v2/blockchain/accounts/${address}/methods/get_public_key?args=${address}`,
+    );
+    const stack = (response.data as PublicByAddress).stack[1];
+    if ('num' in stack) {
+      return stack.num.slice(2);
+    }
+    return null;
+  } catch (e: any) {
+    return null;
   }
-  return await getWalletContractByAddressVersion(
-    address,
-    walletInterfaces,
-  );
 }
 
 const versionList = [
@@ -80,56 +98,10 @@ export async function getWalletContractByAddressVersion(
     case 'wallet_v1R2':
       return await WalletContractV1R2.create(createArg);
     case 'wallet_v1R1':
-      return await WalletContractV1R1.create(createArg);
+      return await WalletContractV1R2.create(createArg);
     default:
       throw new Error('No version found');
   }
-}
-
-export async function getKeyPairByMnemonic(
-  mnemonic: string,
-  divider = ' ',
-) {
-  const key = await mnemonicToWalletKey(mnemonic.split(divider));
-  console.log(key.secretKey);
-  const [secretKey, publicKey] = [
-    bufToStr(key.secretKey),
-    bufToStr(key.publicKey),
-  ];
-  return { secretKey, publicKey };
-}
-
-export async function getSecretBufferByMnemonic(
-  mnemonic: string,
-  divider = ' ',
-) {
-  const key = await getKeyPairByMnemonic(mnemonic, divider);
-  return key.secretKey;
-}
-
-export async function getWalletPublicKeyByAddress(
-  address: string,
-) {
-  try {
-    const response = await axiod.get(
-      `https://tonapi.io/v2/blockchain/accounts/${address}/methods/get_public_key?args=${address}`,
-    );
-    const stack = (response.data as PublicByAddress).stack[1];
-    if ('num' in stack) {
-      return stack.num.slice(2);
-    }
-    return null;
-  } catch (e: any) {
-    return null;
-  }
-}
-
-export async function maybeNewClient(clientTon?: TonClient) {
-  if (!clientTon) {
-    const endpoint = await getHttpEndpoint({ network: 'mainnet' });
-    return new TonClient({ endpoint });
-  }
-  return clientTon;
 }
 
 export async function waitForTransaction(
