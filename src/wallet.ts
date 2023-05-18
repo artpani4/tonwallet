@@ -1,3 +1,4 @@
+import { boolean } from 'https://deno.land/x/zod@v3.21.4/types.ts';
 import {
   addWallet,
   axiod,
@@ -6,17 +7,18 @@ import {
   getWalletContractByAddressVersion,
   mnemonicNew,
   mnemonicToWalletKey,
+  strToBuf,
   supabase,
   TonClient,
   WalletByAddress,
-  WalletContractV1R2,
-  WalletContractV1R3,
-  WalletContractV2R1,
-  WalletContractV2R2,
-  WalletContractV3R1,
-  WalletContractV3R2,
   WalletContractV4,
 } from './mod.ts';
+import {
+  makePayment,
+  makePaymentFromInactive,
+  makePaymentToInactive,
+} from './transfer.ts';
+import { sleep } from '../helpers/timer.ts';
 
 export interface IWallet {
   privateKey: string;
@@ -34,7 +36,7 @@ export async function createWallet(
   if (error) {
     throw new Error(error.message);
   }
-  console.log(wallet);
+  console.log(`Wallet created: ${wallet.address}`);
 }
 
 export async function maybeNewClient(client?: TonClient) {
@@ -93,4 +95,44 @@ export async function getWalletContractByAddress(
     address,
     walletInterfaces,
   );
+}
+
+export async function activateWallet(
+  targetAddress: string,
+  targetSecretKey: string,
+  targetPublicKey: string,
+  fundingAddress: string,
+  fundingSecretKey: string,
+  clientTon?: TonClient,
+) {
+  const client = await maybeNewClient(clientTon);
+  const createArg = {
+    publicKey: strToBuf(targetPublicKey),
+    workchain: 0,
+  };
+
+  const fundingWallet = await getWalletContractByAddress(
+    fundingAddress,
+  );
+  if (await client.isContractDeployed(fundingWallet.address)) {
+    await makePaymentToInactive(
+      fundingWallet,
+      fundingSecretKey,
+      targetAddress,
+      '0.09',
+      'Activating',
+      client,
+    );
+    // await sleep(2000);
+    await makePaymentFromInactive(
+      targetPublicKey,
+      targetSecretKey,
+      fundingAddress,
+      '0.075',
+    );
+  } else {
+    console.log(
+      'Lose',
+    );
+  }
 }

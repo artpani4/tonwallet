@@ -20,7 +20,6 @@ export async function getKeyPairByMnemonic(
   divider = ' ',
 ) {
   const key = await mnemonicToWalletKey(mnemonic.split(divider));
-  console.log(key.secretKey);
   const [secretKey, publicKey] = [
     bufToStr(key.secretKey),
     bufToStr(key.publicKey),
@@ -32,7 +31,7 @@ export async function getSecretBufferByMnemonic(
   mnemonic: string,
   divider = ' ',
 ) {
-  const key = await getKeyPairByMnemonic(mnemonic, divider);
+  const key = await mnemonicToWalletKey(mnemonic.split(divider));
   return key.secretKey;
 }
 
