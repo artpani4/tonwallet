@@ -1,6 +1,5 @@
 import manager from '../config/manager.ts';
 import { TestnetConfig } from '../config/localConfigSchema.ts';
-import { activateWallet } from './wallet.ts';
 import { supabase } from './mod.ts';
 import { getKeyPairByAddressDb } from '../helpers/db.ts';
 import { getKeyPairByMnemonic } from '../helpers/walletUtils.ts';

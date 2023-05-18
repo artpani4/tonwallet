@@ -23,7 +23,7 @@ const testnetLocalConfig: TestnetConfig = {
       'artpanitest',
       'kQCnrUsj-l_9ajt1QRZLutpFknkKG4AULHzsUl8mzz00wueH',
     ],
-    ['sevapp', 'EQCpK63K5IrV8e27q-W4Ktg5WnYjAXIKRSraL3XcDfz3sgX8'],
+    ['sevapp', 'EQBiaSPuG33CuKXHClwsVvA-SazmLmtiTfXV7dQnqJdIlGgI'],
   ],
 };
 

@@ -1,4 +1,13 @@
-import { mnemonicToWalletKey } from '../src/mod.ts';
+import {
+  mnemonicToWalletKey,
+  WalletContractV1R1,
+  WalletContractV1R2,
+  WalletContractV1R3,
+  WalletContractV2R1,
+  WalletContractV2R2,
+  WalletContractV3R1,
+  WalletContractV3R2,
+} from '../src/mod.ts';
 import {
   getHttpEndpoint,
   OpenedContract,
@@ -8,12 +17,73 @@ import {
 import { sleep } from './timer.ts';
 import { Buffer } from 'https://deno.land/std@0.139.0/node/buffer.ts';
 import axiod from 'https://deno.land/x/axiod/mod.ts';
-export async function getWalletContractByPublic(public_key: string) {
-  const wallet = WalletContractV4.create({
+import { PublicByAddress } from '../schema/public.ts';
+import { getWalletLowInfoByAddress } from '../src/wallet.ts';
+import { bufToStr } from './buffer.ts';
+
+export async function getWalletContractByAddress(
+  address: string,
+) {
+  const walletInterfaces = (await getWalletLowInfoByAddress(address))
+    ?.interfaces;
+  if (walletInterfaces === undefined) {
+    throw new Error('No interfaces found');
+  }
+  return await getWalletContractByAddressVersion(
+    address,
+    walletInterfaces,
+  );
+}
+
+const versionList = [
+  'wallet_v4R2',
+  'wallet_v4',
+  'wallet_v3R2',
+  'wallet_v3R1',
+  'wallet_v2R2',
+  'wallet_v2R1',
+  'wallet_v1R3',
+  'wallet_v1R2',
+  'wallet_v1',
+];
+export async function getWalletContractByAddressVersion(
+  address: string,
+  versions: string[],
+) {
+  const public_key = await getWalletPublicKeyByAddress(address);
+  if (public_key === null) throw new Error('No public key found');
+  const key = versions.find((version) =>
+    versionList.includes(version)
+  );
+  // console.log(public_key);
+  // console.log(key);
+  if (key === undefined) throw new Error('No version found');
+  const createArg = {
     publicKey: Buffer.from(public_key, 'hex'),
     workchain: 0,
-  });
-  return wallet;
+  };
+
+  switch (key) {
+    case 'wallet_v4R2':
+    case 'wallet_v4':
+      return await WalletContractV4.create(createArg);
+    case 'wallet_v3R2':
+      return await WalletContractV3R2.create(createArg);
+    case 'wallet_v3R1':
+      return await WalletContractV3R1.create(createArg);
+    case 'wallet_v2R2':
+      return await WalletContractV2R2.create(createArg);
+    case 'wallet_v2R1':
+      return await WalletContractV2R1.create(createArg);
+    case 'wallet_v1R3':
+      return await WalletContractV1R3.create(createArg);
+    case 'wallet_v1R2':
+      return await WalletContractV1R2.create(createArg);
+    case 'wallet_v1R1':
+      return await WalletContractV1R1.create(createArg);
+    default:
+      throw new Error('No version found');
+  }
 }
 
 export async function getKeyPairByMnemonic(
@@ -21,7 +91,12 @@ export async function getKeyPairByMnemonic(
   divider = ' ',
 ) {
   const key = await mnemonicToWalletKey(mnemonic.split(divider));
-  return key;
+  console.log(key.secretKey);
+  const [secretKey, publicKey] = [
+    bufToStr(key.secretKey),
+    bufToStr(key.publicKey),
+  ];
+  return { secretKey, publicKey };
 }
 
 export async function getSecretBufferByMnemonic(
@@ -32,36 +107,26 @@ export async function getSecretBufferByMnemonic(
   return key.secretKey;
 }
 
-export async function getSecretStringByMnemonic(
-  mnemonic: string,
-  divider = ' ',
-) {
-  const key = await getKeyPairByMnemonic(mnemonic, divider);
-  return key.secretKey.toString('hex');
-}
-
 export async function getWalletPublicKeyByAddress(
   address: string,
-): Promise<[string | null, string | null]> {
+) {
   try {
     const response = await axiod.get(
-      `https://tonapi.io/v1/wallet/getWalletPublicKey?account=${address}`,
+      `https://tonapi.io/v2/blockchain/accounts/${address}/methods/get_public_key?args=${address}`,
     );
-    const publicKey = response.data.publicKey as string;
-    return [publicKey, null];
-  } catch (e: any) {
-    if (e.response && e.response.data && e.response.data.error) {
-      const error = e.response.data.error;
-      return [null, error];
-    } else {
-      return [null, 'Unknown error'];
+    const stack = (response.data as PublicByAddress).stack[1];
+    if ('num' in stack) {
+      return stack.num.slice(2);
     }
+    return null;
+  } catch (e: any) {
+    return null;
   }
 }
 
 export async function maybeNewClient(clientTon?: TonClient) {
   if (!clientTon) {
-    const endpoint = await getHttpEndpoint();
+    const endpoint = await getHttpEndpoint({ network: 'mainnet' });
     return new TonClient({ endpoint });
   }
   return clientTon;
@@ -69,7 +134,16 @@ export async function maybeNewClient(clientTon?: TonClient) {
 
 export async function waitForTransaction(
   seqno: number,
-  OpenedWalletContract: OpenedContract<WalletContractV4>,
+  OpenedWalletContract: OpenedContract<
+    | WalletContractV4
+    | WalletContractV3R2
+    | WalletContractV3R1
+    | WalletContractV2R2
+    | WalletContractV2R1
+    | WalletContractV1R3
+    | WalletContractV1R2
+    | WalletContractV1R1
+  >,
   delayms: number,
 ) {
   const smallAddress = OpenedWalletContract.address.toString().slice(
@@ -85,68 +159,3 @@ export async function waitForTransaction(
   }
   console.log(`transaction for ${smallAddress} confirmed!`);
 }
-
-// interface ITransferParamsKeys {
-//   fromPublicKey: string;
-//   toPublicKey: string;
-//   fromSecretKey: string;
-
-//   amount: string;
-//   body?: string;
-// }
-
-// export async function sendTransferByKeys(
-//   options: ITransferParamsKeys,
-//   clientTon?: TonClient,
-// ) {
-//   const client = await maybeNewClient(clientTon);
-//   const {
-//     fromPublicKey,
-//     fromSecretKey,
-//     toPublicKey,
-//     amount,
-//     body,
-//   } = options;
-//   const fromWallet = await getWalletContractByPublic(
-//     fromPublicKey,
-//   );
-//   const toWallet = await getWalletContractByPublic(
-//     toPublicKey,
-//   );
-//   if (!await client.isContractDeployed(fromWallet.address)) {
-//     console.log('Sender wallet is not deployed');
-//     return;
-//   }
-
-//   const fromWalletOpenContract = client.open(fromWallet);
-//   // const toWalletOpenContract = client.open(toWallet);
-//   const seqno = await fromWalletOpenContract.getSeqno();
-//   // console.log(toWallet.address.toString());
-//   console.log(`secretKey : ${Buffer.from(fromSecretKey, 'hex')}\n
-//   seqno : ${seqno}\n
-//    toAddress : ${toWallet.address.toString()}\n
-//    amount : ${amount}\n
-//    body : ${body}\n`);
-//   await fromWalletOpenContract.sendTransfer({
-//     secretKey: Buffer.from(fromSecretKey, 'hex'),
-//     seqno: seqno,
-//     messages: [
-//       internal({
-//         to: toWallet.address.toString(),
-//         value: amount,
-//         bounce: false,
-//         body: body,
-//       }),
-//     ],
-//   });
-//   console.log('Payment sent successfully');
-//   // await waitForTransaction(seqno, toWallet.address.toString(), 1500);
-// }
-
-// // interface ITransferParamsAddress {
-// //   fromAddress: string;
-// //   toAddress: string;
-// //   amount: string;
-// //   body?: string;
-// //   fromSecretKey: string;
-// // }

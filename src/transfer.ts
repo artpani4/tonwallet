@@ -1,7 +1,8 @@
 import {
-  getWalletContractByPublic,
+  getWalletContractByAddress,
   getWalletPublicKeyByAddress,
   maybeNewClient,
+  waitForTransaction,
 } from '../helpers/walletUtils.ts';
 import {
   getHttpEndpoint,
@@ -15,6 +16,7 @@ import { Buffer } from 'https://deno.land/std@0.139.0/node/buffer.ts';
 import { getKeyPairByAddressDb } from '../helpers/db.ts';
 import manager from '../config/manager.ts';
 import { TestnetConfig } from '../config/localConfigSchema.ts';
+import { strToBuf } from '../helpers/buffer.ts';
 
 const config = await manager.localLoadConfig(
   (config: TestnetConfig) => config.name === Deno.env.get('name'),
@@ -134,28 +136,11 @@ export async function makePayment(
 ) {
   const client = await maybeNewClient(clientTon);
 
-  const [senderPublicKey, senderError] =
-    await getWalletPublicKeyByAddress(senderAddress);
-  if (senderError || senderPublicKey === null) {
-    console.log('Failed to retrieve sender public key:', senderError);
-    return;
-  }
-
-  const [recipientPublicKey, recipientError] =
-    await getWalletPublicKeyByAddress(recipientAddress);
-  if (recipientError || recipientPublicKey === null) {
-    console.log(
-      'Failed to retrieve recipient public key:',
-      recipientError,
-    );
-    return;
-  }
-
-  const senderWallet = await getWalletContractByPublic(
-    senderPublicKey,
+  const senderWallet = await getWalletContractByAddress(
+    senderAddress,
   );
-  const recipientWallet = await getWalletContractByPublic(
-    recipientPublicKey,
+  const recipientWallet = await getWalletContractByAddress(
+    recipientAddress,
   );
 
   // Проверка, развернут ли кошелек отправителя
@@ -167,20 +152,19 @@ export async function makePayment(
   // Получение последовательного номера последней транзакции отправителя
   const walletContract = client.open(senderWallet);
   const seqno = await walletContract.getSeqno();
-
-  console.log(`secretKey: ${Buffer.from(senderSecretKey, 'hex')}
-  seqno: ${seqno}
-  recipientWallet: ${recipientWallet.address.toString()}
-  amount: ${amount}
-  body: ${body}`);
-
+  // console.log(
+  //   `senderWallet: ${senderWallet.address.toString()}\nrecipientWallet: ${recipientWallet.address.toString()}\namount: ${amount}\nbody: ${body}\n`,
+  // );
+  // console.log(walletContract);
+  // console.log(seqno);
   // Отправка платежа
+  console.log(strToBuf(senderSecretKey));
   await walletContract.sendTransfer({
-    secretKey: Buffer.from(senderSecretKey, 'hex'),
+    secretKey: strToBuf(senderSecretKey),
     seqno: seqno,
     messages: [
       internal({
-        to: recipientWallet.address.toString(),
+        to: recipientWallet.address,
         value: amount,
         body: body,
         bounce: false,
@@ -188,5 +172,5 @@ export async function makePayment(
     ],
   });
 
-  console.log('Payment sent successfully');
+  await waitForTransaction(seqno, walletContract, 1500);
 }
