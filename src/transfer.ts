@@ -1,3 +1,4 @@
+import { maybeNewClient } from '../helpers/walletUtils.ts';
 import {
   internal,
   strToBuf,
@@ -11,10 +12,7 @@ import {
   WalletContractV3R2,
   WalletContractV4,
 } from './mod.ts';
-import {
-  getWalletContractByAddress,
-  maybeNewClient,
-} from './wallet.ts';
+import { getWalletContractByAddress } from './wallet.ts';
 
 export async function makePayment(
   senderAddress: string,

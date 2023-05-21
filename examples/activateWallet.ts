@@ -35,10 +35,10 @@ const testwallet = await getWalletByAddressDb(
   'EQD1cM_4bMhmWlrRrkS8P71QEACDVmpu6Ng0kMOjnmCqqKJx',
 );
 
-await activateWallet(
-  testwallet.address,
-  testwallet.private_key,
-  testwallet.public_key,
-  myAddress,
-  myKeys.secretKey,
-);
+// await activateWallet(
+//   testwallet.address,
+//   testwallet.private_key,
+//   testwallet.public_key,
+//   myAddress,
+//   myKeys.secretKey,
+// );

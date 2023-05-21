@@ -1,24 +1,24 @@
-import { boolean } from 'https://deno.land/x/zod@v3.21.4/types.ts';
 import {
+  Address,
   addWallet,
   axiod,
   bufToStr,
-  getHttpEndpoint,
+  fromNano,
   getWalletContractByAddressVersion,
   mnemonicNew,
   mnemonicToWalletKey,
-  strToBuf,
   supabase,
   TonClient,
   WalletByAddress,
   WalletContractV4,
 } from './mod.ts';
 import {
-  makePayment,
   makePaymentFromInactive,
   makePaymentToInactive,
 } from './transfer.ts';
-import { sleep } from '../helpers/timer.ts';
+import { updateWalletDb } from './db/setter.ts';
+import { maybeNewClient } from '../helpers/walletUtils.ts';
+import * as base64 from 'https://deno.land/std@0.184.0/encoding/base64.ts';
 
 export interface IWallet {
   privateKey: string;
@@ -39,25 +39,14 @@ export async function createWallet(
   console.log(`Wallet created: ${wallet.address}`);
 }
 
-export async function maybeNewClient(client?: TonClient) {
-  if (!client) {
-    const endpoint = await getHttpEndpoint();
-    client = new TonClient({ endpoint });
-  }
-  return client;
-}
-
 export async function initializeWallet(
   mnemonic: string[],
-  clientTon?: TonClient,
 ): Promise<IWallet> {
   const key = await mnemonicToWalletKey(mnemonic);
   const generatedWallet = WalletContractV4.create({
     publicKey: key.publicKey,
     workchain: 0,
   });
-
-  const client = await maybeNewClient(clientTon);
 
   return {
     privateKey: bufToStr(key.secretKey),
@@ -97,19 +86,22 @@ export async function getWalletContractByAddress(
   );
 }
 
+export async function getBalanceByAddress(address: string) {
+  const client = await maybeNewClient();
+  const balance = await client.getBalance(Address.parse(address));
+  return fromNano(balance);
+}
+
 export async function activateWallet(
   targetAddress: string,
   targetSecretKey: string,
   targetPublicKey: string,
   fundingAddress: string,
   fundingSecretKey: string,
+  database: supabase.SupabaseClient<any, 'public', any> | null,
   clientTon?: TonClient,
 ) {
   const client = await maybeNewClient(clientTon);
-  const createArg = {
-    publicKey: strToBuf(targetPublicKey),
-    workchain: 0,
-  };
 
   const fundingWallet = await getWalletContractByAddress(
     fundingAddress,
@@ -123,16 +115,46 @@ export async function activateWallet(
       'Activating',
       client,
     );
-    // await sleep(2000);
     await makePaymentFromInactive(
       targetPublicKey,
       targetSecretKey,
       fundingAddress,
       '0.075',
     );
+
+    if (database !== null) {
+      await updateWalletDb(database, targetAddress, { active: true });
+    }
   } else {
     console.log(
       'Lose',
     );
   }
 }
+
+export async function getEstimateFee(
+  address: string,
+  body: string,
+) {
+  try {
+    const res = await axiod.post(
+      `https://sandbox.tonhubapi.com/estimateFeeSimple`,
+      {
+        address: Address.parse(address),
+        body: {
+          'data': { 'b64': base64.encode(body), 'len': body.length },
+          'refs': [],
+        },
+      },
+    );
+    console.log(res);
+  } catch (e: any) {
+    return e.message;
+  }
+}
+
+const a = await getEstimateFee(
+  'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5',
+  'Activating',
+);
+console.log(a);

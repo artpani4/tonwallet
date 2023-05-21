@@ -1,16 +1,6 @@
-//
-
-import { generateSchema } from 'https://deno.land/x/tuner@v0.0.3/schema/generator.ts';
 import { TestnetConfig } from '../config/localConfigSchema.ts';
 import manager from '../config/manager.ts';
-import {
-  getAllWalletsDb,
-  getWalletByAddressDb,
-  getWalletsByActiveDb,
-} from '../src/db/getter.ts';
 import { supabase } from '../src/mod.ts';
-import { createWallet } from '../src/wallet.ts';
-import { WalletsFromDb } from '../schema/walletsFromDb.ts';
 
 const config = await manager.localLoadConfig(
   (config: TestnetConfig) => config.name === Deno.env.get('name'),
@@ -21,6 +11,19 @@ const database = supabase.createClient(
   manager.getSecret('dbAPIKey')!,
 );
 
+const Wallets = database.channel('custom-all-channel')
+  .on(
+    'postgres_changes',
+    { event: 'UPDATE', schema: 'public', table: 'Wallets' },
+    (payload) => {
+      console.log('Change received!', payload.new.active);
+    },
+  )
+  .subscribe();
+
+// await updateActivityWallet(database);
+// const a = await getAllWalletsDb(database);
+// console.log(a);
 // const data = (await getAllWalletsDb(database)) as WalletsFromDb;
 
 // const wallet = await getWalletByAddressDb(
@@ -29,5 +32,6 @@ const database = supabase.createClient(
 // );
 // console.log(wallet);
 
-const inactiveWallets = await getWalletsByActiveDb(database, true);
-console.log(inactiveWallets);
+// const inactiveWallets = await getWalletsByActiveDb(database, true);
+// console.log(inactiveWallets);
+// Добавить проверку активности кошельков и соотнесение с БД

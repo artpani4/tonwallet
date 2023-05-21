@@ -1,5 +1,7 @@
 import { WalletFromDb } from '../../schema/walletFromDb.ts';
+import { WalletsFromDb } from '../../schema/walletsFromDb.ts';
 import { supabase } from '../mod.ts';
+import { IWallet } from '../wallet.ts';
 
 export async function getKeyPairByAddressDb(
   db: supabase.SupabaseClient<any, 'public', any>,
@@ -43,7 +45,7 @@ export async function getAllWalletsDb(
   if (data === null) {
     throw new Error('No wallet found');
   }
-  return data;
+  return data as WalletsFromDb;
 }
 
 export async function getWalletByAddressDb(
@@ -72,13 +74,48 @@ export async function getWalletsByActiveDb(
   return data as WalletFromDb[];
 }
 
-export async function getWalletsByResevedDb(
+export async function getActivatedWalletsDb(
   db: supabase.SupabaseClient<any, 'public', any>,
-  reserved: boolean,
 ) {
   const { data, error } = await db
     .from('Wallets')
-    .select('*').eq('reserved', reserved);
+    .select('*').eq('active', true);
+  if (data === null) {
+    throw new Error('No wallet found');
+  }
+  return data as WalletFromDb[];
+}
+
+export async function getNonActivatedWalletsDb(
+  db: supabase.SupabaseClient<any, 'public', any>,
+) {
+  const { data, error } = await db
+    .from('Wallets')
+    .select('*').eq('active', false);
+  if (data === null) {
+    throw new Error('No wallet found');
+  }
+  return data as WalletFromDb[];
+}
+
+export async function getReservedWalletsDb(
+  db: supabase.SupabaseClient<any, 'public', any>,
+) {
+  const { data, error } = await db
+    .from('Wallets')
+    .select('*').eq('reserved', true);
+  if (data === null) {
+    throw new Error('No wallet found');
+  }
+  return data as WalletFromDb[];
+}
+
+export async function getNonReservedWalletsDb(
+  db: supabase.SupabaseClient<any, 'public', any>,
+) {
+  const { data, error } = await db
+    .from('Wallets')
+    .select('*').eq('reserved', false);
   if (data === null) {
     throw new Error('No wallet found');
   }

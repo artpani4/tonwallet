@@ -8,7 +8,12 @@ import {
   WalletContractV3R1,
   WalletContractV3R2,
 } from '../src/mod.ts';
-import { OpenedContract, WalletContractV4 } from './mod.ts';
+import {
+  getHttpEndpoint,
+  OpenedContract,
+  TonClient,
+  WalletContractV4,
+} from './mod.ts';
 import { sleep } from './timer.ts';
 import { Buffer } from 'https://deno.land/std@0.139.0/node/buffer.ts';
 import axiod from 'https://deno.land/x/axiod/mod.ts';
@@ -129,4 +134,12 @@ export async function waitForTransaction(
     currentSeqno = await OpenedWalletContract.getSeqno();
   }
   console.log(`transaction for ${smallAddress} confirmed!`);
+}
+
+export async function maybeNewClient(client?: TonClient) {
+  if (!client) {
+    const endpoint = await getHttpEndpoint();
+    client = new TonClient({ endpoint });
+  }
+  return client;
 }
