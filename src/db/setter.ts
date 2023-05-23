@@ -1,5 +1,10 @@
+import { getShortAddress } from '../../helpers/walletUtils.ts';
 import { WalletFromDb } from '../../schema/walletFromDb.ts';
 import { supabase } from '../mod.ts';
+import {
+  getLastTransactionByAddress,
+  getTransactionBody,
+} from '../transaction.ts';
 import { getWalletLowInfoByAddress, IWallet } from '../wallet.ts';
 import { getAllWalletsDb } from './getter.ts';
 
@@ -82,7 +87,32 @@ export async function updateWalletDb(
     .update(walletData)
     .eq('address', address);
   if (error) {
-    throw new Error('Failed to update wallet');
+    throw new Error(`Failed to update wallet: ${error.message}`);
   }
   return data;
+}
+
+export async function updateActualInfoDb(
+  db: supabase.SupabaseClient<any, 'public', any>,
+) {
+  const wallets = await getAllWalletsDb(db);
+  for (const wallet of wallets) {
+    const walletRealInfo = await getWalletLowInfoByAddress(
+      wallet.address,
+    );
+    if (walletRealInfo === null) {
+      throw new Error(`Wallet ${wallet.address} not found`);
+    }
+    const lastTA = await getLastTransactionByAddress(wallet.address);
+    await updateWalletDb(db, wallet.address, {
+      balance: walletRealInfo.balance,
+      last_transaction_hash: lastTA === null ? null : lastTA?.hash,
+      last_transaction_lt: lastTA === null ? null : lastTA?.lt,
+      last_message: lastTA === null ? '' : getTransactionBody(lastTA),
+      active: walletRealInfo.status,
+    });
+    console.log(
+      `Wallet   ${getShortAddress(wallet.address)} updated`,
+    );
+  }
 }

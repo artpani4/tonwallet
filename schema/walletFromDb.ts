@@ -7,10 +7,12 @@ export const walletFromDbSchema = z.object({
   invoice_id: z.literal(null),
   public_key: z.string(),
   private_key: z.string(),
-  active: z.boolean(),
-  last_transaction_hash: z.literal(null),
-  last_transaction_lt: z.number(),
+  active: z.string(),
+  last_transaction_hash: z.string().nullable(),
+  last_transaction_lt: z.number().nullable(),
   mnemonic: z.string(),
+  balance: z.number(),
+  last_message: z.string(),
 });
 
 export type WalletFromDb = z.infer<typeof walletFromDbSchema>;

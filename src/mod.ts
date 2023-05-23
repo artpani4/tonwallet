@@ -13,6 +13,8 @@ export {
   WalletContractV4,
 } from 'npm:ton';
 
+export { Cell } from 'npm:ton-core';
+
 export type { OpenedContract } from 'npm:ton-core';
 export { Address } from 'npm:ton-core';
 export { getHttpEndpoint } from 'npm:@orbs-network/ton-access';

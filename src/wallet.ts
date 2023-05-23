@@ -3,8 +3,10 @@ import {
   addWallet,
   axiod,
   bufToStr,
+  Cell,
   fromNano,
   getWalletContractByAddressVersion,
+  internal,
   mnemonicNew,
   mnemonicToWalletKey,
   supabase,
@@ -17,8 +19,13 @@ import {
   makePaymentToInactive,
 } from './transfer.ts';
 import { updateWalletDb } from './db/setter.ts';
-import { maybeNewClient } from '../helpers/walletUtils.ts';
+import {
+  maybeNewClient,
+  sumTotalFee,
+} from '../helpers/walletUtils.ts';
 import * as base64 from 'https://deno.land/std@0.184.0/encoding/base64.ts';
+import { strToBuf } from '../helpers/buffer.ts';
+import { number } from 'https://deno.land/x/zod@v3.21.4/types.ts';
 
 export interface IWallet {
   privateKey: string;
@@ -27,6 +34,13 @@ export interface IWallet {
   address: string;
 }
 
+export interface ISourceFee {
+  '@type': 'fees';
+  in_fwd_fee: number;
+  storage_fee: number;
+  gas_fee: number;
+  fwd_fee: number;
+}
 export async function createWallet(
   db: supabase.SupabaseClient<any, 'public', any>,
 ) {
@@ -37,6 +51,7 @@ export async function createWallet(
     throw new Error(error.message);
   }
   console.log(`Wallet created: ${wallet.address}`);
+  return wallet;
 }
 
 export async function initializeWallet(
@@ -56,6 +71,7 @@ export async function initializeWallet(
   };
 }
 
+// balance in nanotons
 export async function getWalletLowInfoByAddress(
   address: string,
 ): Promise<WalletByAddress | null> {
@@ -92,6 +108,12 @@ export async function getBalanceByAddress(address: string) {
   return fromNano(balance);
 }
 
+export async function getNanoBalanceByAddress(address: string) {
+  const client = await maybeNewClient();
+  const balance = await client.getBalance(Address.parse(address));
+  return balance;
+}
+
 export async function activateWallet(
   targetAddress: string,
   targetSecretKey: string,
@@ -123,7 +145,9 @@ export async function activateWallet(
     );
 
     if (database !== null) {
-      await updateWalletDb(database, targetAddress, { active: true });
+      await updateWalletDb(database, targetAddress, {
+        active: 'active',
+      });
     }
   } else {
     console.log(
@@ -132,29 +156,75 @@ export async function activateWallet(
   }
 }
 
-export async function getEstimateFee(
-  address: string,
+// export async function getEstimateFee(
+//   address: string,
+//   body: string,
+// ) {
+//   try {
+//     const res = await axiod.post(
+//       `https://sandbox.tonhubapi.com/estimateFeeSimple`,
+//       {
+//         address: Address.parse(address),
+//         body: {
+//           'data': { 'b64': base64.encode(body), 'len': body.length },
+//           'refs': [],
+//         },
+//       },
+//     );
+//     console.log(res);
+//   } catch (e: any) {
+//     return e.message;
+//   }
+// }
+
+export async function estimateFee(
+  fundingAddress: string,
+  targetAddress: string,
   body: string,
+  amount: number,
 ) {
-  try {
-    const res = await axiod.post(
-      `https://sandbox.tonhubapi.com/estimateFeeSimple`,
-      {
-        address: Address.parse(address),
-        body: {
-          'data': { 'b64': base64.encode(body), 'len': body.length },
-          'refs': [],
-        },
-      },
-    );
-    console.log(res);
-  } catch (e: any) {
-    return e.message;
-  }
+  const cl = await maybeNewClient();
+  const res = await cl.estimateExternalMessageFee(
+    Address.parse(fundingAddress),
+    {
+      body: internal({
+        to: Address.parse(targetAddress),
+        value: amount.toString(),
+        bounce: false,
+        body,
+      }).body,
+      initCode: null,
+      initData: null,
+      ignoreSignature: false,
+    },
+  );
+  return res.source_fees;
 }
 
-const a = await getEstimateFee(
-  'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5',
-  'Activating',
-);
-console.log(a);
+export async function estimateTotalFee(
+  fundingAddress: string,
+  targetAddress: string,
+  body: string,
+  amount: number,
+) {
+  const cl = await maybeNewClient();
+  const res = await cl.estimateExternalMessageFee(
+    Address.parse(fundingAddress),
+    {
+      body: internal({
+        to: Address.parse(targetAddress),
+        value: amount.toString(),
+        bounce: false,
+        body,
+      }).body,
+      initCode: null,
+      initData: null,
+      ignoreSignature: false,
+    },
+  );
+  return fromNano(
+    sumTotalFee(
+      await estimateFee(fundingAddress, targetAddress, body, amount),
+    ),
+  );
+}

@@ -1,5 +1,7 @@
 import { generateSchema } from 'https://deno.land/x/tuner@v0.0.3/schema/generator.ts';
 import { axiod, fromNano } from './mod.ts';
+import { getShortAddress } from '../helpers/walletUtils.ts';
+import { getWalletLowInfoByAddress } from './wallet.ts';
 
 interface IAccountAddress {
   address: string;
@@ -87,7 +89,7 @@ export async function getLastTransactionByAddress(
   if (maybeTransaction && maybeTransaction.length > 0) {
     return maybeTransaction[0];
   }
-  throw new Error('no transaction');
+  return null;
 }
 
 export function getTransactionHash(transaction: ITransaction) {
@@ -118,6 +120,8 @@ export function getTransactionFee(transaction: ITransaction) {
 export function getTransactionBody(transaction: ITransaction) {
   if (transaction.in_msg && transaction.in_msg.decoded_body.text) {
     return transaction.in_msg.decoded_body.text;
+  } else if (transaction.out_msgs.length === 0) {
+    return '';
   } else if (transaction.out_msgs[0].decoded_body.text) {
     return transaction.out_msgs[0].decoded_body.text;
   }
@@ -129,16 +133,16 @@ export function getTransactionTime(transaction: ITransaction) {
   return new Date(transaction.utime * 1000);
 }
 
-const a = await getLastTransactionByAddress(
-  'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5',
-);
-if (a) {
-  console.log(`Transaction hash: ${getTransactionHash(a)}
-    Transaction type: ${getTransactionType(a)}
-    Transaction status: ${getTransactionStatus(a)}
-    Transaction value: ${getTransactionValue(a)}
-    Transaction fee: ${getTransactionFee(a)}
-    Transaction body: ${getTransactionBody(a)}
-    Transaction time: ${getTransactionTime(a)}
-    `);
-}
+// const a = await getLastTransactionByAddress(
+//   'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5',
+// );
+// if (a) {
+//   console.log(`Transaction hash: ${getTransactionHash(a)}
+//     Transaction type: ${getTransactionType(a)}
+//     Transaction status: ${getTransactionStatus(a)}
+//     Transaction value: ${getTransactionValue(a)}
+//     Transaction fee: ${getTransactionFee(a)}
+//     Transaction body: ${getTransactionBody(a)}
+//     Transaction time: ${getTransactionTime(a)}
+//     `);
+// }
