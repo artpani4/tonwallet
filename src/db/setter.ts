@@ -1,3 +1,5 @@
+import { string } from 'https://deno.land/x/zod@v3.21.4/types.ts';
+import { address } from '../../../../../Library/Caches/deno/npm/registry.npmjs.org/ton-core/0.49.1/dist/address/Address.d.ts';
 import { getShortAddress } from '../../helpers/walletUtils.ts';
 import { WalletFromDb } from '../../schema/walletFromDb.ts';
 import { supabase } from '../mod.ts';
@@ -54,28 +56,28 @@ const activity = {
   'active': true,
   'nonexist': false,
 };
-export async function updateActivityWallet(
-  db: supabase.SupabaseClient<any, 'public', any>,
-) {
-  const wallets = await getAllWalletsDb(db);
-  for (const wallet of wallets) {
-    const walletRealInfo = await getWalletLowInfoByAddress(
-      wallet.address,
-    );
-    if (walletRealInfo === null) {
-      throw new Error(`Wallet ${wallet.address} not found`);
-    }
-    if (
-      wallet.active !==
-        activity[walletRealInfo.status as keyof typeof activity]
-    ) {
-      await db.from('Wallets').update({
-        active:
-          activity[walletRealInfo.status as keyof typeof activity],
-      }).eq('address', wallet.address);
-    }
-  }
-}
+// export async function updateActivityWallet(
+//   db: supabase.SupabaseClient<any, 'public', any>,
+// ) {
+//   const wallets = await getAllWalletsDb(db);
+//   for (const wallet of wallets) {
+//     const walletRealInfo = await getWalletLowInfoByAddress(
+//       wallet.address,
+//     );
+//     if (walletRealInfo === null) {
+//       throw new Error(`Wallet ${wallet.address} not found`);
+//     }
+//     if (
+//       wallet.active !==
+//         activity[walletRealInfo.status as keyof typeof activity]
+//     ) {
+//       await db.from('Wallets').update({
+//         active:
+//           activity[walletRealInfo.status as keyof typeof activity],
+//       }).eq('address', wallet.address);
+//     }
+//   }
+// }
 
 export async function updateWalletDb(
   db: supabase.SupabaseClient<any, 'public', any>,
@@ -90,6 +92,29 @@ export async function updateWalletDb(
     throw new Error(`Failed to update wallet: ${error.message}`);
   }
   return data;
+}
+
+export async function updateWalletActualInfoDb(
+  db: supabase.SupabaseClient<any, 'public', any>,
+  address: string,
+) {
+  const walletRealInfo = await getWalletLowInfoByAddress(
+    address,
+  );
+  if (walletRealInfo === null) {
+    throw new Error(`Wallet ${address} not found`);
+  }
+  const lastTA = await getLastTransactionByAddress(address);
+  await updateWalletDb(db, address, {
+    balance: walletRealInfo.balance,
+    last_transaction_hash: lastTA === null ? null : lastTA?.hash,
+    last_transaction_lt: lastTA === null ? null : lastTA?.lt,
+    last_message: lastTA === null ? '' : getTransactionBody(lastTA),
+    active: walletRealInfo.status,
+  });
+  console.log(
+    `Wallet   ${getShortAddress(address)} updated`,
+  );
 }
 
 export async function updateActualInfoDb(

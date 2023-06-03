@@ -96,6 +96,7 @@ export async function makePaymentFromInactive(
   inactiveSecret: string,
   backAddress: string,
   amount: string,
+  body?: string,
   clientTon?: TonClient,
 ) {
   const client = await maybeNewClient(clientTon);
@@ -111,8 +112,8 @@ export async function makePaymentFromInactive(
     messages: [
       internal({
         to: backAddress,
-        value: amount, // 0.001 TON
-        body: `Activated!`,
+        value: amount,
+        body,
         bounce: false,
       }),
     ],

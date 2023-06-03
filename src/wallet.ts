@@ -10,22 +10,29 @@ import {
   mnemonicNew,
   mnemonicToWalletKey,
   supabase,
+  toNano,
   TonClient,
   WalletByAddress,
   WalletContractV4,
 } from './mod.ts';
 import {
+  makePayment,
   makePaymentFromInactive,
   makePaymentToInactive,
 } from './transfer.ts';
-import { updateWalletDb } from './db/setter.ts';
 import {
+  updateWalletActualInfoDb,
+  updateWalletDb,
+} from './db/setter.ts';
+import {
+  getShortAddress,
   maybeNewClient,
   sumTotalFee,
 } from '../helpers/walletUtils.ts';
 import * as base64 from 'https://deno.land/std@0.184.0/encoding/base64.ts';
 import { strToBuf } from '../helpers/buffer.ts';
 import { number } from 'https://deno.land/x/zod@v3.21.4/types.ts';
+import { getAllWalletsDb } from './db/getter.ts';
 
 export interface IWallet {
   privateKey: string;
@@ -201,30 +208,77 @@ export async function estimateFee(
   return res.source_fees;
 }
 
-export async function estimateTotalFee(
-  fundingAddress: string,
+// export async function estimateTotalFee(
+//   secretKey: string,
+//   fundingAddress: string,
+//   targetAddress: string,
+//   body: string,
+//   amount: string,
+// ) {
+//   const cl = await maybeNewClient();
+//   const wallet = await getWalletContractByAddress(fundingAddress);
+//   const openedWallet = cl.open(wallet);
+//   const seqno = await openedWallet.getSeqno();
+//   const boc = wallet.sendTransfer({
+//     secretKey: strToBuf(secretKey),
+//     seqno: seqno,
+//     messages: [
+//       internal({
+//         to: targetAddress,
+//         value: amount,
+//         body,
+//         bounce: false,
+//       }),
+//     ],
+//   });
+// const res = await cl.estimateExternalMessageFee(
+//   Address.parse(fundingAddress),
+//   {
+//     body: internal({
+//       to: Address.parse(targetAddress),
+//       value: amount.toString(),
+//       bounce: false,
+//       body,
+//     }).body,
+//     initCode: null,
+//     initData: null,
+//     ignoreSignature: false,
+//   },
+// );
+// return fromNano(
+//   sumTotalFee(
+//     await estimateFee(fundingAddress, targetAddress, body, amount),
+//   ),
+// );
+//   return boc;
+// }
+
+export async function withdrawToMain(
+  database: supabase.SupabaseClient<any, 'public', any>,
   targetAddress: string,
-  body: string,
-  amount: number,
+  minimalAmount: number | string,
+  averageFee = '0.0055',
 ) {
-  const cl = await maybeNewClient();
-  const res = await cl.estimateExternalMessageFee(
-    Address.parse(fundingAddress),
-    {
-      body: internal({
-        to: Address.parse(targetAddress),
-        value: amount.toString(),
-        bounce: false,
-        body,
-      }).body,
-      initCode: null,
-      initData: null,
-      ignoreSignature: false,
-    },
+  const wallets = (await getAllWalletsDb(database)).filter((w) =>
+    w.balance > toNano(minimalAmount)
   );
-  return fromNano(
-    sumTotalFee(
-      await estimateFee(fundingAddress, targetAddress, body, amount),
-    ),
-  );
+
+  for (const wallet of wallets) {
+    const money = wallet.balance -
+      1.5 * Number(toNano(averageFee));
+    if (money < 0) continue;
+    console.log(
+      `Trying to send from ${
+        getShortAddress(wallet.address)
+      } ---- ${money} coins`,
+    );
+    await makePaymentFromInactive(
+      wallet.public_key,
+      wallet.private_key,
+      targetAddress,
+      fromNano(money),
+      `From ${getShortAddress(wallet.address)}`,
+    );
+    await updateWalletActualInfoDb(database, wallet.address);
+  }
 }

@@ -23,12 +23,10 @@ const sevAddress =
   (config.testAddresses.find((a) => a[0] === 'sevapp')!)[1];
 // console.log(`My address: ${myAddress}, SEV address: ${sevAddress}`);
 
-const myWallet = await getWalletContractByAddress(myAddress);
-
-// await makePayment(
-//   myAddress,
-//   sevAddress,
-//   myKeys.secretKey,
-//   '0.05',
-//   'УРА!!!!',
-// );
+await makePayment(
+  myAddress,
+  sevAddress,
+  myKeys.secretKey,
+  '0.05',
+  'комиссия должна быть 0.005943483',
+);

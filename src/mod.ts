@@ -1,7 +1,16 @@
-export { mnemonicNew, mnemonicToWalletKey } from 'npm:ton-crypto';
 export {
+  mnemonicNew,
+  mnemonicToWalletKey,
+  sign,
+} from 'npm:ton-crypto';
+export {
+  beginCell,
+  comment,
+  external,
   fromNano,
   internal,
+  storeMessage,
+  toNano,
   TonClient,
   WalletContractV1R1,
   WalletContractV1R2,

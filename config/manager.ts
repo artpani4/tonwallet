@@ -1,15 +1,17 @@
-import { ConfigManager } from 'https://deno.land/x/tuner@v0.0.3/src/mod.ts';
-import { generateSchema } from 'https://deno.land/x/tuner@v0.0.3/schema/generator.ts';
+import { ConfigManager } from 'https://deno.land/x/tuner/mod.ts';
 import {
-  TestnetConfig,
-  testnetConfigSchema,
-} from './localConfigSchema.ts';
+  LocalWallet,
+  localWalletSchema,
+} from './localWalletSchema.ts';
 
 const manager = new ConfigManager<
-  TestnetConfig,
-  typeof testnetConfigSchema
->(testnetConfigSchema);
+  LocalWallet,
+  typeof localWalletSchema
+>(
+  localWalletSchema,
+);
 
-manager.addLocalConfigUrl('./config/testnetConfig.ts');
+// Добавление одного локального конфига
+manager.addLocalConfigPath('config/local.ts');
 
 export default manager;
