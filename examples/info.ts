@@ -1,6 +1,18 @@
+import { LocalWallet } from '../config/localWalletSchema.ts';
+import manager from '../config/manager.ts';
 import { getWalletLowInfoByAddress } from '../src/wallet.ts';
 
-const a = await getWalletLowInfoByAddress(
-  'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5',
-);
-console.log(a);
+try {
+  const config = await manager.loadConfig(
+    (config: LocalWallet) => config.name === Deno.env.get('name'),
+  );
+  if (config === null) throw new Error('Config not found');
+
+  const myWalletInfo = await getWalletLowInfoByAddress(
+    config?.artpaniAddress,
+  );
+  console.log(myWalletInfo);
+  Deno.exit();
+} catch (e) {
+  console.log(e);
+}

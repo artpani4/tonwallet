@@ -3,7 +3,6 @@ import {
   addWallet,
   axiod,
   bufToStr,
-  Cell,
   fromNano,
   getWalletContractByAddressVersion,
   internal,
@@ -16,7 +15,6 @@ import {
   WalletContractV4,
 } from './mod.ts';
 import {
-  makePayment,
   makePaymentFromInactive,
   makePaymentToInactive,
 } from './transfer.ts';
@@ -29,25 +27,15 @@ import {
   maybeNewClient,
   sumTotalFee,
 } from '../helpers/walletUtils.ts';
-import * as base64 from 'https://deno.land/std@0.184.0/encoding/base64.ts';
-import { strToBuf } from '../helpers/buffer.ts';
-import { number } from 'https://deno.land/x/zod@v3.21.4/types.ts';
-import { getAllWalletsDb } from './db/getter.ts';
+import { IWallet, TWalletContract } from './types.ts';
 
-export interface IWallet {
-  privateKey: string;
-  publicKey: string;
-  mnemonic: string[];
-  address: string;
-}
-
-export interface ISourceFee {
-  '@type': 'fees';
-  in_fwd_fee: number;
-  storage_fee: number;
-  gas_fee: number;
-  fwd_fee: number;
-}
+/**
+ * Создает новый кошелек и заносит его в базу данных
+ *
+ * @param db - Клиент Supabase для работы с базой данных.
+ * @returns Созданный кошелек.
+ * @throws Ошибка, если возникли проблемы при создании кошелька или добавлении его в базу данных.
+ */
 export async function createWallet(
   db: supabase.SupabaseClient<any, 'public', any>,
 ) {
@@ -61,6 +49,12 @@ export async function createWallet(
   return wallet;
 }
 
+/**
+ * Инициализирует кошелек на основе мнемонической фразы.
+ *
+ * @param mnemonic - Мнемоническая фраза для инициализации кошелька.
+ * @returns Инициализированный кошелек.
+ */
 export async function initializeWallet(
   mnemonic: string[],
 ): Promise<IWallet> {
@@ -78,7 +72,12 @@ export async function initializeWallet(
   };
 }
 
-// balance in nanotons
+/**
+ * Получает базовую информацию о кошельке по его адресу.
+ *
+ * @param address - Адрес кошелька.
+ * @returns Информация о кошельке или null, если информация не доступна.
+ */
 export async function getWalletLowInfoByAddress(
   address: string,
 ): Promise<WalletByAddress | null> {
@@ -95,9 +94,16 @@ export async function getWalletLowInfoByAddress(
   }
 }
 
+/**
+ * Получает контракт кошелька по его адресу.
+ *
+ * @param address - Адрес кошелька.
+ * @returns Контракт кошелька.
+ * @throws Ошибка, если не удалось получить контракт кошелька.
+ */
 export async function getWalletContractByAddress(
   address: string,
-) {
+): Promise<TWalletContract> {
   const walletInterfaces = (await getWalletLowInfoByAddress(address))
     ?.interfaces;
   if (walletInterfaces === undefined) {
@@ -109,18 +115,45 @@ export async function getWalletContractByAddress(
   );
 }
 
-export async function getBalanceByAddress(address: string) {
+/**
+ * Получает баланс кошелька по его адресу в тонах
+ *
+ * @param address - Адрес кошелька.
+ * @returns Баланс кошелька в тонах.
+ */
+export async function getBalanceByAddress(
+  address: string,
+): Promise<string> {
   const client = await maybeNewClient();
   const balance = await client.getBalance(Address.parse(address));
   return fromNano(balance);
 }
 
-export async function getNanoBalanceByAddress(address: string) {
+/**
+ * Получает баланс кошелька по его адресу в нанотонах.
+ *
+ * @param address - Адрес кошелька.
+ * @returns Баланс кошелька в нанотонах.
+ */
+export async function getNanoBalanceByAddress(
+  address: string,
+): Promise<bigint> {
   const client = await maybeNewClient();
   const balance = await client.getBalance(Address.parse(address));
   return balance;
 }
 
+/**
+ * Активирует кошелек.
+ *
+ * @param targetAddress - Адрес целевого кошелька для активации.
+ * @param targetSecretKey - Секретный ключ целевого кошелька.
+ * @param targetPublicKey - Публичный ключ целевого кошелька.
+ * @param fundingAddress - Адрес кошелька для финансирования активации.
+ * @param fundingSecretKey - Секретный ключ кошелька для финансирования активации.
+ * @param database - Клиент Supabase для работы с базой данных (опционально).
+ * @param clientTon - Клиент TonClient для выполнения операций (опционально).
+ */
 export async function activateWallet(
   targetAddress: string,
   targetSecretKey: string,
@@ -184,29 +217,29 @@ export async function activateWallet(
 //   }
 // }
 
-export async function estimateFee(
-  fundingAddress: string,
-  targetAddress: string,
-  body: string,
-  amount: number,
-) {
-  const cl = await maybeNewClient();
-  const res = await cl.estimateExternalMessageFee(
-    Address.parse(fundingAddress),
-    {
-      body: internal({
-        to: Address.parse(targetAddress),
-        value: amount.toString(),
-        bounce: false,
-        body,
-      }).body,
-      initCode: null,
-      initData: null,
-      ignoreSignature: false,
-    },
-  );
-  return res.source_fees;
-}
+// export async function estimateFee(
+//   fundingAddress: string,
+//   targetAddress: string,
+//   body: string,
+//   amount: number,
+// ) {
+//   const cl = await maybeNewClient();
+//   const res = await cl.estimateExternalMessageFee(
+//     Address.parse(fundingAddress),
+//     {
+//       body: internal({
+//         to: Address.parse(targetAddress),
+//         value: amount.toString(),
+//         bounce: false,
+//         body,
+//       }).body,
+//       initCode: null,
+//       initData: null,
+//       ignoreSignature: false,
+//     },
+//   );
+//   return res.source_fees;
+// }
 
 // export async function estimateTotalFee(
 //   secretKey: string,
@@ -253,32 +286,33 @@ export async function estimateFee(
 //   return boc;
 // }
 
-export async function withdrawToMain(
-  database: supabase.SupabaseClient<any, 'public', any>,
-  targetAddress: string,
-  minimalAmount: number | string,
-  averageFee = '0.0055',
-) {
-  const wallets = (await getAllWalletsDb(database)).filter((w) =>
-    w.balance > toNano(minimalAmount)
-  );
+//TODO переделать так, чтобы отправлял все по умолчанию
+// export async function withdrawToMain(
+//   database: supabase.SupabaseClient<any, 'public', any>,
+//   targetAddress: string,
+//   minimalAmount: number | string,
+//   averageFee = '0.0055',
+// ) {
+//   const wallets = (await getAllWalletsDb(database)).filter((w) =>
+//     w.balance > toNano(minimalAmount)
+//   );
 
-  for (const wallet of wallets) {
-    const money = wallet.balance -
-      1.5 * Number(toNano(averageFee));
-    if (money < 0) continue;
-    console.log(
-      `Trying to send from ${
-        getShortAddress(wallet.address)
-      } ---- ${money} coins`,
-    );
-    await makePaymentFromInactive(
-      wallet.public_key,
-      wallet.private_key,
-      targetAddress,
-      fromNano(money),
-      `From ${getShortAddress(wallet.address)}`,
-    );
-    await updateWalletActualInfoDb(database, wallet.address);
-  }
-}
+//   for (const wallet of wallets) {
+//     const money = wallet.balance -
+//       1.5 * Number(toNano(averageFee));
+//     if (money < 0) continue;
+//     console.log(
+//       `Trying to send from ${
+//         getShortAddress(wallet.address)
+//       } ---- ${money} coins`,
+//     );
+//     await makePaymentFromInactive(
+//       wallet.public_key,
+//       wallet.private_key,
+//       targetAddress,
+//       fromNano(money),
+//       `From ${getShortAddress(wallet.address)}`,
+//     );
+//     await updateWalletActualInfoDb(database, wallet.address);
+//   }
+// }

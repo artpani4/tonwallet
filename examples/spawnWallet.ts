@@ -1,17 +1,18 @@
 //
 
-import { TestnetConfig } from '../config/localConfigSchema.ts';
+import { getSecret } from 'https://deno.land/x/tuner@v0.0.6/src/manager.ts';
+import { LocalWallet } from '../config/localWalletSchema.ts';
 import manager from '../config/manager.ts';
 import { supabase } from '../src/mod.ts';
 import { createWallet } from '../src/wallet.ts';
 
 const config = await manager.localLoadConfig(
-  (config: TestnetConfig) => config.name === Deno.env.get('name'),
+  (config: LocalWallet) => config.name === Deno.env.get('name'),
 );
 if (config === null) throw Error('No config');
 const database = supabase.createClient(
-  manager.getSecret('dbURL')!,
-  manager.getSecret('dbAPIKey')!,
+  getSecret('dbURL')!,
+  getSecret('dbAPIKey')!,
 );
 
 for (let i = 0; i < 5; i++) {

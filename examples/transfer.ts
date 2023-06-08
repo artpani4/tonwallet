@@ -1,32 +1,26 @@
-import { TestnetConfig } from '../config/localConfigSchema.ts';
+import { getSecret } from 'https://deno.land/x/tuner@v0.0.6/src/manager.ts';
+import { LocalWallet } from '../config/localWalletSchema.ts';
 import manager from '../config/manager.ts';
 import { getKeyPairByMnemonic } from '../helpers/walletUtils.ts';
 import { makePayment } from '../src/transfer.ts';
-import { getWalletContractByAddress } from '../src/wallet.ts';
 
-const config = await manager.localLoadConfig(
-  (config: TestnetConfig) => config.name === Deno.env.get('name'),
+const config = await manager.loadConfig(
+  (config: LocalWallet) => config.name === Deno.env.get('name'),
 );
 if (config === null) throw Error('No config');
 
 const myKeys = await getKeyPairByMnemonic(
-  manager.getSecret('mnemonic')!,
+  getSecret('MNEMO')!,
   '_',
 );
 // const key = await mnemonicToWalletKey(
 //   manager.getSecret('mnemonic')!.split('_'),
 // );
 
-const myAddress =
-  (config.testAddresses.find((a) => a[0] === 'artpani')!)[1];
-const sevAddress =
-  (config.testAddresses.find((a) => a[0] === 'sevapp')!)[1];
-// console.log(`My address: ${myAddress}, SEV address: ${sevAddress}`);
-
 await makePayment(
-  myAddress,
-  sevAddress,
+  config.artpaniAddress,
+  config.sevappAddress,
   myKeys.secretKey,
   '0.05',
-  'комиссия должна быть 0.005943483',
+  'Отправил, заюзав конфиг в ноушене',
 );

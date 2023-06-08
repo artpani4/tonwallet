@@ -1,69 +1,25 @@
-import { generateSchema } from 'https://deno.land/x/tuner@v0.0.3/schema/generator.ts';
 import { axiod, fromNano } from './mod.ts';
-import { getShortAddress } from '../helpers/walletUtils.ts';
-import { getWalletLowInfoByAddress } from './wallet.ts';
+import {
+  ITransaction,
+  TAccountStatus,
+  TTransactionType,
+} from './types.ts';
 
-interface IAccountAddress {
-  address: string;
-  is_scam: boolean;
-  name?: string;
-  icon?: string;
-}
-
-type TAccountStatus = 'nonexist' | 'uninit' | 'active' | 'frozen';
-type TTransactionType =
-  | 'TransOrd'
-  | 'TransTickTock'
-  | 'TransSplitPrepare'
-  | 'TransSplitInstall'
-  | 'TransMergePrepare'
-  | 'TransMergeInstall'
-  | 'TransStorage';
-
-interface IMessage {
-  created_lt: number;
-  ihr_disabled: boolean;
-  bounce: boolean;
-  bounced: boolean;
-
-  value: number;
-  fwd_fee: number;
-  ihr_fee: number;
-  destination: IAccountAddress;
-  source: IAccountAddress;
-  import_fee: number;
-  created_at: number;
-  op_code?: string;
-  decoded_body: {
-    text: string;
-  };
-}
-
-interface ITransaction {
-  hash: string;
-  lt: number;
-  account: IAccountAddress;
-  success: boolean;
-  utime: number;
-  orig_status: TAccountStatus;
-  end_status: TAccountStatus;
-  total_fees: number;
-  transaction_type: TTransactionType;
-  in_msg?: IMessage;
-  out_msgs: IMessage[];
-  block: string;
-  prev_trans_hash: string;
-  prev_trans_lt: number;
-  aborted: boolean;
-  destroyed: boolean;
-}
-
+/**
+ * Получает список транзакций для указанного адреса с использованием параметров before_lt, after_lt и limit.
+ *
+ * @param address - Адрес для получения транзакций.
+ * @param before_lt - Опциональный параметр. Возвращает транзакции, которые были выполнены до указанного логического времени.
+ * @param after_lt - Опциональный параметр. Возвращает транзакции, которые были выполнены после указанного логического времени.
+ * @param limit - Опциональный параметр. Ограничивает количество возвращаемых транзакций.
+ * @returns Список транзакций для указанного адреса или null, если возникла ошибка.
+ */
 export async function getTransactionsByAddress(
   address: string,
   before_lt = 0,
   after_lt = 0,
   limit = 5,
-) {
+): Promise<ITransaction[] | null> {
   try {
     const res = await axiod.get(
       `https://tonapi.io/v2/blockchain/accounts/${address}/transactions?after_lt=${after_lt}&before_lt=${before_lt}&limit=${limit}`,
@@ -77,9 +33,15 @@ export async function getTransactionsByAddress(
   }
 }
 
+/**
+ * Получает последнюю транзакцию для указанного адреса.
+ *
+ * @param address - Адрес для получения последней транзакции.
+ * @returns Последняя транзакция для указанного адреса или null, если нет доступных транзакций.
+ */
 export async function getLastTransactionByAddress(
   address: string,
-) {
+): Promise<ITransaction | null> {
   const maybeTransaction = await getTransactionsByAddress(
     address,
     0,
@@ -92,19 +54,53 @@ export async function getLastTransactionByAddress(
   return null;
 }
 
-export function getTransactionHash(transaction: ITransaction) {
+/**
+ * Возвращает хэш транзакции.
+ *
+ * @param transaction - Транзакция, для которой нужно получить хэш.
+ * @returns Хэш транзакции.
+ */
+
+export function getTransactionHash(
+  transaction: ITransaction,
+): string {
   return transaction.hash;
 }
 
-export function getTransactionType(transaction: ITransaction) {
+/**
+ * Возвращает тип транзакции.
+ *
+ * @param transaction - Транзакция, для которой нужно получить хэш.
+ * @returns Тип транзакции.
+ */
+export function getTransactionType(
+  transaction: ITransaction,
+): TTransactionType {
   return transaction.transaction_type;
 }
 
-export function getTransactionStatus(transaction: ITransaction) {
+/**
+ * Возвращает статус транзакции.
+ *
+ * @param transaction - Транзакция, для которой нужно получить хэш.
+ * @returns Статус транзакции.
+ */
+export function getTransactionStatus(
+  transaction: ITransaction,
+): TAccountStatus {
   return transaction.end_status;
 }
 
-export function getTransactionValue(transaction: ITransaction) {
+/**
+ * Возвращает сумму транзакции.
+ *
+ * @param transaction - Транзакция, для которой нужно получить сумму.
+ * @returns Сумма транзакициия в тонах
+ * @throws Если транзакиция не имеет сообщения.
+ */
+export function getTransactionValue(
+  transaction: ITransaction,
+): string {
   if (transaction.in_msg && transaction.in_msg.value > 0) {
     return fromNano(transaction.in_msg.value);
   } else if (transaction.out_msgs[0].value > 0) {
@@ -113,11 +109,25 @@ export function getTransactionValue(transaction: ITransaction) {
   throw new Error('no value');
 }
 
-export function getTransactionFee(transaction: ITransaction) {
+/**
+ * Возвращает стоимость комиссий транзакции.
+ *
+ * @param transaction - Транзакция, для которой нужно получить комиссии.
+ * @returns Значение комиссии в тонах.
+ */
+export function getTransactionFee(transaction: ITransaction): string {
   return fromNano(transaction.total_fees);
 }
 
-export function getTransactionBody(transaction: ITransaction) {
+/**
+ * Возвращает сообщение транзакции.
+ *
+ * @param transaction - Транзакция, для которой нужно получить сообщение.
+ * @returns Сообщение транзакции.
+ */
+export function getTransactionBody(
+  transaction: ITransaction,
+): string {
   if (transaction.in_msg && transaction.in_msg.decoded_body.text) {
     return transaction.in_msg.decoded_body.text;
   } else if (transaction.out_msgs.length === 0) {
@@ -129,20 +139,6 @@ export function getTransactionBody(transaction: ITransaction) {
 }
 
 //TODO Подумать, хули время такое неправильное получается из таймстампа
-export function getTransactionTime(transaction: ITransaction) {
-  return new Date(transaction.utime * 1000);
-}
-
-// const a = await getLastTransactionByAddress(
-//   'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5',
-// );
-// if (a) {
-//   console.log(`Transaction hash: ${getTransactionHash(a)}
-//     Transaction type: ${getTransactionType(a)}
-//     Transaction status: ${getTransactionStatus(a)}
-//     Transaction value: ${getTransactionValue(a)}
-//     Transaction fee: ${getTransactionFee(a)}
-//     Transaction body: ${getTransactionBody(a)}
-//     Transaction time: ${getTransactionTime(a)}
-//     `);
+// export function getTransactionTime(transaction: ITransaction) {
+//   return new Date(transaction.utime * 1000);
 // }
