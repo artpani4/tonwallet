@@ -19,7 +19,6 @@ import { Buffer } from 'https://deno.land/std@0.139.0/node/buffer.ts';
 import axiod from 'https://deno.land/x/axiod/mod.ts';
 import { PublicByAddress } from '../schema/public.ts';
 import { bufToStr } from './buffer.ts';
-import { ISourceFee } from '../src/wallet.ts';
 
 export async function getKeyPairByMnemonic(
   mnemonic: string,
@@ -30,6 +29,7 @@ export async function getKeyPairByMnemonic(
     bufToStr(key.secretKey),
     bufToStr(key.publicKey),
   ];
+
   return { secretKey, publicKey };
 }
 
@@ -145,10 +145,10 @@ export async function maybeNewClient(client?: TonClient) {
   return client;
 }
 
-export function sumTotalFee(sourceFee: ISourceFee) {
-  return sourceFee.fwd_fee + sourceFee.storage_fee +
-    sourceFee.gas_fee + sourceFee.in_fwd_fee;
-}
+// export function sumTotalFee(sourceFee: ISourceFee) {
+//   return sourceFee.fwd_fee + sourceFee.storage_fee +
+//     sourceFee.gas_fee + sourceFee.in_fwd_fee;
+// }
 
 export function getShortAddress(address: string) {
   return address.slice(0, 6) + '...' + address.slice(-6);

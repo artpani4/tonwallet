@@ -7,8 +7,9 @@ import {
   getLastTransactionByAddress,
   getTransactionBody,
 } from '../transaction.ts';
-import { getWalletLowInfoByAddress, IWallet } from '../wallet.ts';
+import { getWalletLowInfoByAddress } from '../wallet.ts';
 import { getAllWalletsDb } from './getter.ts';
+import { IWallet } from '../types.ts';
 
 interface IWalletSchema {
   created_at: Date;

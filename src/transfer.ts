@@ -1,9 +1,11 @@
-import { maybeNewClient } from '../helpers/walletUtils.ts';
+import {
+  maybeNewClient,
+  waitForTransaction,
+} from '../helpers/walletUtils.ts';
 import {
   internal,
   strToBuf,
   TonClient,
-  waitForTransaction,
   WalletContractV1R2,
   WalletContractV1R3,
   WalletContractV2R1,
@@ -30,6 +32,7 @@ export async function makePayment(
   senderSecretKey: string,
   amount: string,
   body?: string,
+  allAmount?: boolean,
   clientTon?: TonClient,
 ): Promise<void> {
   const client = await maybeNewClient(clientTon);
@@ -57,18 +60,17 @@ export async function makePayment(
         bounce: false,
       }),
     ],
+    sendMode: allAmount ? 128 : 0,
   });
-
   // await waitForTransaction(seqno, walletContract, 1500);
 }
 
 /**
- * Осуществляет платеж от неактивного кошелька.
+ * Осуществляет платеж на  неактивный кошелек
  *
- * @param senderWallet - Неактивный кошелек отправителя.
+ * @param senderWallet - Активный кошелек отправителя.
  * @param fundingSecretKey - Секретный ключ для финансирования неактивного кошелька в виде base64
  * @param recipientAddress - Адрес получателя.
- * @param amount - Сумма платежа в виде строки(в тонах)
  * @param body - Опциональный параметр. Текстовое сообщение платежа.
  * @param clientTon - Опциональный параметр. Клиент TonClient для выполнения операций.
  */
@@ -83,7 +85,6 @@ export async function makePaymentToInactive(
     | WalletContractV1R2,
   fundingSecretKey: string,
   recipientAddress: string,
-  amount: string,
   body?: string,
   clientTon?: TonClient,
 ): Promise<void> {
@@ -101,23 +102,20 @@ export async function makePaymentToInactive(
     messages: [
       internal({
         to: recipientAddress,
-        value: amount,
+        value: '0.5',
         body: body,
         bounce: false,
       }),
     ],
   });
-
-  // await waitForTransaction(seqno, walletContract, 1500);
+  await waitForTransaction(seqno, walletContract, 2000);
 }
-
 /**
  * Осуществляет платеж из неактивного кошелька.
  *
  * @param inactivePublic - Публичный ключ неактивного кошелька в виде base64
  * @param inactiveSecret - Секретный ключ неактивного кошелька в виде base64
  * @param backAddress - Адрес получателя.
- * @param amount - Сумма платежа в виде строки(в тонах)
  * @param body - Опциональный параметр. Текстовое сообщение платежа.
  * @param clientTon - Опциональный параметр. Клиент TonClient для выполнения операций.
  */
@@ -125,7 +123,6 @@ export async function makePaymentFromInactive(
   inactivePublic: string,
   inactiveSecret: string,
   backAddress: string,
-  amount: string,
   body?: string,
   clientTon?: TonClient,
 ): Promise<void> {
@@ -142,11 +139,12 @@ export async function makePaymentFromInactive(
     messages: [
       internal({
         to: backAddress,
-        value: amount,
+        value: '1',
         body,
         bounce: false,
       }),
     ],
+    sendMode: 128,
   });
-  // await waitForTransaction(seqno, inactiveContract, 4000);
+  await waitForTransaction(seqno, inactiveContract, 2000);
 }

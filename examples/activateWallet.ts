@@ -1,39 +1,45 @@
-import { TestnetConfig } from '../config/localConfigSchema.ts';
-import manager from '../config/manager.ts';
-import {
-  getKeyPairByMnemonic,
-  getSecretBufferByMnemonic,
-} from '../helpers/walletUtils.ts';
-import { getWalletByAddressDb } from '../src/db/getter.ts';
-import { strToBuf, supabase } from '../src/mod.ts';
-import {
-  activateWallet,
-  createWallet,
-  getWalletContractByAddress,
-} from '../src/wallet.ts';
+import { getSecret } from 'https://deno.land/x/tuner@v0.0.6/src/manager.ts';
+import { getKeyPairByMnemonic } from '../helpers/walletUtils.ts';
+import { supabase } from '../src/mod.ts';
+import { activateWallet } from '../src/wallet.ts';
+import config from './config.ts';
 
-const config = await manager.localLoadConfig(
-  (config: TestnetConfig) => config.name === Deno.env.get('name'),
-);
-if (config === null) throw Error('No config');
+if (!config) {
+  throw new Error('config not found');
+}
 const database = supabase.createClient(
-  manager.getSecret('dbURL')!,
-  manager.getSecret('dbAPIKey')!,
+  getSecret('dbURL')!,
+  getSecret('dbAPIKey')!,
 );
 
-const myKeys = await getKeyPairByMnemonic(
-  manager.getSecret('mnemonic')!,
-  '_',
+const fundingKeys = await getKeyPairByMnemonic(
+  getSecret('MNEMO')!,
 );
-const myWallet = await getWalletContractByAddress(
-  config.testAddresses[0][1],
-);
-const myAddress = myWallet.address.toString();
 
-const testwallet = await getWalletByAddressDb(
+const targetKeys = await getKeyPairByMnemonic(
+  getSecret('MNEMO_TEST'),
+);
+
+await activateWallet(
+  config.testAddress,
+  targetKeys.secretKey,
+  targetKeys.publicKey,
+  config.mainFundingAddress,
+  fundingKeys.secretKey,
   database,
-  'EQD1cM_4bMhmWlrRrkS8P71QEACDVmpu6Ng0kMOjnmCqqKJx',
 );
+// await makePaymentFromInactive(
+//   targetKeys.publicKey,
+//   targetKeys.secretKey,
+//   config.mainFundingAddress,
+//   '0.01',
+//   'ОПА!',
+// );
+
+// const testwallet = await getWalletByAddressDb(
+//   database,
+//   'EQD1cM_4bMhmWlrRrkS8P71QEACDVmpu6Ng0kMOjnmCqqKJx',
+// );
 
 // await activateWallet(
 //   testwallet.address,

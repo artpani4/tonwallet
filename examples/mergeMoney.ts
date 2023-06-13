@@ -3,6 +3,7 @@ import { LocalWallet } from '../config/localWalletSchema.ts';
 import manager from '../config/manager.ts';
 
 import { supabase } from '../src/mod.ts';
+import { withdrawToMain } from '../src/wallet.ts';
 
 const config = await manager.loadConfig(
   (config: LocalWallet) => config.name === Deno.env.get('name'),
@@ -13,6 +14,6 @@ const database = supabase.createClient(
   getSecret('dbAPIKey')!,
 );
 
-const myAddress = 'EQBh_jk8-HKU8IHpS5L918vSsw3H2wq2zgRrJ6xVGvf9lwy5';
+const myAddress = config.mainFundingAddress;
 
-// await withdrawToMain(database, myAddress, '0.08', '0.01');
+await withdrawToMain(database, myAddress, '0.0001');

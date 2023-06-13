@@ -5,8 +5,10 @@ export const localWalletSchema = z.object({
   secrets: z.array(z.object({
   name: z.string()
 })),
+  mainFundingAddress: z.string(),
   artpaniAddress: z.string(),
-  sevappAddress: z.string()
+  sevappAddress: z.string(),
+  testAddress: z.string()
 })
 
 export type LocalWallet = z.infer<typeof localWalletSchema>;
@@ -17,8 +19,12 @@ export type LocalWallet = z.infer<typeof localWalletSchema>;
 //│  │  └─ name
 //│  ├─ 1
 //│  │  └─ name
-//│  └─ 2
+//│  ├─ 2
+//│  │  └─ name
+//│  └─ 3
 //│     └─ name
+//├─ mainFundingAddress
 //├─ artpaniAddress
-//└─ sevappAddress
+//├─ sevappAddress
+//└─ testAddress
 //

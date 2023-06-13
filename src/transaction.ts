@@ -128,7 +128,10 @@ export function getTransactionFee(transaction: ITransaction): string {
 export function getTransactionBody(
   transaction: ITransaction,
 ): string {
-  if (transaction.in_msg && transaction.in_msg.decoded_body.text) {
+  if (
+    transaction.in_msg && transaction.in_msg.decoded_body &&
+    transaction.in_msg.decoded_body.text
+  ) {
     return transaction.in_msg.decoded_body.text;
   } else if (transaction.out_msgs.length === 0) {
     return '';
@@ -137,8 +140,3 @@ export function getTransactionBody(
   }
   return '';
 }
-
-//TODO Подумать, хули время такое неправильное получается из таймстампа
-// export function getTransactionTime(transaction: ITransaction) {
-//   return new Date(transaction.utime * 1000);
-// }
